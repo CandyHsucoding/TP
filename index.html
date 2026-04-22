@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>五甲國中-工時統計表(填滿A4版)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 強制黑實線邊框 */
+        table, th, td { border: 1.5px solid black !important; }
+        
+        /* 螢幕顯示樣式 */
+        td { padding: 6px !important; }
+
+        /* 代班狀態顯眼色 */
+        .status-7 { 
+            background-color: #fef08a !important; /* 亮黃色 */
+            font-weight: bold !important;
+            color: #b45309 !important; /* 深橘色字 */
+        }
+
+        @media print {
+            @page { 
+                size: A4; 
+                margin: 0.8cm 1cm; /* 標準 A4 邊距 */
+            }
+            body { 
+                background-color: white; 
+                font-size: 12pt; /* 加大字體 */
+                line-height: 1.5;
+                -webkit-print-color-adjust: exact;
+            }
+            .no-print { display: none !important; }
+            .print-container { 
+                box-shadow: none !important; 
+                padding: 0 !important; 
+                width: 100% !important;
+            }
+            /* 讓表格行高增加，填滿頁面空白 */
+            tr { height: 42px; } 
+            th { height: 40px; background-color: #f3f4f6 !important; }
+            
+            select { display: none !important; }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 p-2">
+
+    <div class="max-w-4xl mx-auto bg-white shadow-xl p-8 print-container">
+        
+        <div class="no-print bg-slate-800 text-white p-5 rounded-lg mb-6 flex flex-wrap items-end gap-4 text-sm">
+            <div class="flex gap-4">
+                <div>
+                    <label class="block mb-1 opacity-70">年度/月份</label>
+                    <div class="flex gap-1">
+                        <select id="selectYear" class="bg-slate-700 border-none rounded p-1" onchange="initTable()">
+                            <option value="114">114年</option><option value="115" selected>115年</option><option value="116">116年</option>
+                        </select>
+                        <select id="selectMonth" class="bg-slate-700 border-none rounded p-1" onchange="initTable()">
+                            <option value="1">1月</option><option value="2">2月</option><option value="3">3月</option><option value="4" selected>4月</option>
+                            <option value="5">5月</option><option value="6">6月</option><option value="7">7月</option><option value="8">8月</option>
+                            <option value="9">9月</option><option value="10">10月</option><option value="11">11月</option><option value="12">12月</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="block mb-1 opacity-70 text-red-400">假日 (如: 3, 6)</label>
+                    <input type="text" id="inputHolidays" class="bg-slate-700 border-none rounded p-1 w-24 text-center" oninput="initTable()">
+                </div>
+            </div>
+            <button onclick="window.print()" class="bg-yellow-500 hover:bg-yellow-600 text-slate-900 px-8 py-2 rounded font-bold shadow-lg ml-auto transition-all">
+                🖨️ 產生 A4 報表
+            </button>
+        </div>
+
+        <div class="flex justify-between items-center border-b-4 border-double border-black pb-2 mb-4">
+            <h1 class="text-2xl font-bold">
+                五甲國中 <span id="displayYear">115</span>年<span id="displayMonth">4</span>月 臨時人員工時統計
+            </h1>
+            <span class="text-xs text-gray-400 font-normal italic">內部管理紀錄</span>
+        </div>
+
+        <div class="flex justify-between items-center mb-4 text-base px-1">
+            <div class="flex gap-8">
+                <p>姓名：<span class="font-bold border-b-2 border-black px-6 text-xl">王碧芬</span></p>
+                <p>時薪：<span class="font-mono font-bold">196</span> 元</p>
+            </div>
+            <div class="flex gap-6 font-bold text-lg">
+                <p>總時數：<span id="totalHours" class="text-blue-700">0</span> hr</p>
+                <p>總金額：$<span id="totalSalary" class="text-red-700">0</span></p>
+            </div>
+        </div>
+
+        <table class="w-full text-center border-collapse">
+            <thead class="bg-gray-100">
+                <tr class="text-sm">
+                    <th class="w-10">序</th>
+                    <th class="w-24">日期</th>
+                    <th class="w-12">週</th>
+                    <th class="w-36">出勤說明</th> 
+                    <th class="w-14">時數</th>
+                    <th class="w-32">3h 代理人</th>
+                    <th class="w-40">本人簽到</th> </tr>
+            </thead>
+            <tbody id="tableBody" class="text-[15px]">
+                </tbody>
+        </table>
+
+        <div class="mt-6 flex justify-between items-start text-xs text-gray-500">
+            <div class="space-y-1">
+                <p>※ 「代班(7h)」狀態已標色，請務必確認對應之 3h 代理人是否填寫。</p>
+                <p>※ 本表依行政院人事行政總處行事曆自動過濾週末及國定假日。</p>
+            </div>
+            <div class="text-right">
+                <p>製表日期：2026/04/22</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function initTable() {
+            const rocYear = parseInt(document.getElementById('selectYear').value);
+            const month = parseInt(document.getElementById('selectMonth').value);
+            const holidayInput = document.getElementById('inputHolidays').value;
+            const customHolidays = holidayInput.split(',').map(d => parseInt(d.trim()));
+            const gregorianYear = rocYear + 1911;
+            const daysInMonth = new Date(gregorianYear, month, 0).getDate();
+            
+            document.getElementById('displayYear').innerText = rocYear;
+            document.getElementById('displayMonth').innerText = month;
+
+            const tableBody = document.getElementById('tableBody');
+            let html = '';
+            let serialNo = 1;
+
+            for (let i = 1; i <= daysInMonth; i++) {
+                const dateObj = new Date(gregorianYear, month - 1, i);
+                const dayOfWeek = dateObj.getDay();
+                if (dayOfWeek === 0 || dayOfWeek === 6 || customHolidays.includes(i)) continue;
+
+                const dayStr = ['日', '一', '二', '三', '四', '五', '六'][dayOfWeek];
+                html += `
+                    <tr id="row-${i}">
+                        <td class="text-xs font-mono text-gray-400">${serialNo}</td>
+                        <td class="font-bold">${month}/${i}</td>
+                        <td>${dayStr}</td>
+                        <td class="p-1">
+                            <select onchange="updateRow(${i}, this.value)" class="no-print border border-gray-300 rounded text-sm w-full py-1 text-center bg-white cursor-pointer">
+                                <option value="3">正常 (3h)</option>
+                                <option value="7">代班 (7h)</option>
+                                <option value="0">休假</option>
+                            </select>
+                            <span class="hidden print:inline" id="print-status-${i}">正常上班</span>
+                        </td>
+                        <td class="font-black text-lg" id="hours-${i}">3</td>
+                        <td class="p-1">
+                            <input type="text" id="proxy-${i}" oninput="calculate()" placeholder="代理姓名"
+                                   class="hidden border-2 border-red-200 rounded w-full text-center text-sm py-1 no-print">
+                            <span class="hidden print:inline font-bold text-red-600" id="proxy-print-${i}"></span>
+                        </td>
+                        <td class="sign-cell"></td>
+                    </tr>
+                `;
+                serialNo++;
+            }
+            tableBody.innerHTML = html;
+            calculate();
+        }
+
+        function updateRow(day, value) {
+            const row = document.getElementById(`row-${day}`);
+            const hoursCell = document.getElementById(`hours-${day}`);
+            const proxyInput = document.getElementById(`proxy-${day}`);
+            const printStatus = document.getElementById(`print-status-${day}`);
+
+            hoursCell.innerText = value;
+            
+            // 移除舊樣式
+            row.classList.remove('status-7');
+            
+            if (value === "7") {
+                row.classList.add('status-7');
+                proxyInput.classList.remove('hidden');
+                printStatus.innerText = "★代班(7h)";
+            } else if (value === "0") {
+                proxyInput.classList.add('hidden');
+                printStatus.innerText = "休假";
+            } else {
+                proxyInput.classList.add('hidden');
+                proxyInput.value = "";
+                printStatus.innerText = "正常上班";
+            }
+            calculate();
+        }
+
+        function calculate() {
+            let totalWang = 0;
+            const hourCells = document.querySelectorAll('[id^="hours-"]');
+            hourCells.forEach(cell => {
+                const day = cell.id.split('-')[1];
+                const h = parseInt(cell.innerText) || 0;
+                totalWang += h;
+                const proxyInput = document.getElementById(`proxy-${day}`);
+                const proxyPrint = document.getElementById(`proxy-print-${day}`);
+                if (proxyInput && proxyPrint) proxyPrint.innerText = proxyInput.value;
+            });
+            document.getElementById('totalHours').innerText = totalWang;
+            document.getElementById('totalSalary').innerText = (totalWang * 196).toLocaleString();
+        }
+
+        window.onload = initTable;
+    </script>
+</body>
+</html>
